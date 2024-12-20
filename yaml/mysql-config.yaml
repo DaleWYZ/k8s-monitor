@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-config
+  namespace: your-namespace
+data:
+  host: "mysql-service"
+  port: "3306"
+  user: "your-user"
+  password: "your-password"
+  database: "metrics_db"
+  interval: "30s"  # 支持的格式：30s, 1m, 1h 等
