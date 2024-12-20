@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: metrics-collector
-  namespace: your-namespace
+  namespace: monitor
 spec:
   replicas: 1
   selector:
@@ -16,7 +16,7 @@ spec:
       serviceAccountName: metrics-collector
       containers:
       - name: metrics-collector
-        image: your-registry/metrics-collector:latest
+        image: monitor:v2
         env:
         - name: POD_NAMESPACE
           valueFrom:

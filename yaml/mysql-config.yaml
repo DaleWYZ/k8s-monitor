@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: mysql-config
-  namespace: your-namespace
+  namespace: monitor
 data:
   host: "mysql-service"
   port: "3306"
