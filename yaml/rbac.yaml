@@ -13,7 +13,7 @@ rules:
   resources: ["nodes", "pods"]
   verbs: ["get", "list"]
 - apiGroups: [""]
-  resources: ["nodes"]
+  resources: ["nodes", "configmaps"]
   verbs: ["get", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
