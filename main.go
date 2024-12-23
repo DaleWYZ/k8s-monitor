@@ -102,21 +102,6 @@ func main() {
         log.Fatal("Failed to ping database:", err)
     }
 
-    // 创建数据表
-    _, err = db.Exec(`
-        CREATE TABLE IF NOT EXISTS node_metrics (
-            id BIGINT AUTO_INCREMENT PRIMARY KEY,
-            node_name VARCHAR(255),
-            cpu_available BIGINT,
-            memory_available BIGINT,
-            timestamp DATETIME
-        )
-    `)
-    if err != nil {
-        log.Fatal("Failed to create table:", err)
-    }
-    log.Printf("Successfully ensured database table exists")
-
     log.Printf("Starting metrics collection loop...")
     for {
         startTime := time.Now()
@@ -160,30 +145,25 @@ func main() {
                 continue
             }
 
-            // 计算CPU使用率
-            cpuUsage := nodeMetric.Usage.Cpu()
-            cpuAllocatable := allocatable.Cpu()
-            cpuAvailable := resource.NewQuantity(cpuAllocatable.MilliValue()-cpuUsage.MilliValue(), resource.DecimalSI)
-
-            // 计算内存使用率
+            // 计算内存使用情况
             memoryUsage := nodeMetric.Usage.Memory()
             memoryAllocatable := allocatable.Memory()
             memoryAvailable := resource.NewQuantity(memoryAllocatable.Value()-memoryUsage.Value(), resource.BinarySI)
 
-            // 插入数据到MySQL
+            // 插入数据到MySQL - 使用新的表结构
             _, err = db.Exec(`
-                INSERT INTO node_metrics (node_name, cpu_available, memory_available, timestamp)
-                VALUES (?, ?, ?, NOW())
-            `, nodeName, cpuAvailable.MilliValue(), memoryAvailable.Value())
+                INSERT INTO sea_node_resource (node_mem, reserve_mem, collect_time)
+                VALUES (?, ?, CURRENT_TIMESTAMP)
+            `, memoryAllocatable.Value(), memoryAvailable.Value())
             
             if err != nil {
                 log.Printf("Error inserting metrics for node %s: %v", nodeName, err)
                 continue
             }
 
-            log.Printf("Node: %s - CPU Available: %v, Memory Available: %v bytes",
+            log.Printf("Node: %s - Total Memory: %v, Available Memory: %v bytes",
                 nodeName,
-                cpuAvailable.MilliValue(),
+                memoryAllocatable.Value(),
                 memoryAvailable.Value())
         }
 

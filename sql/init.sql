@@ -4,12 +4,11 @@ CREATE DATABASE IF NOT EXISTS metrics_db;
 -- 使用数据库
 USE metrics_db;
 
--- 创建节点指标表
-CREATE TABLE IF NOT EXISTS node_metrics (
+-- 创建序列（在MySQL中使用AUTO_INCREMENT替代）
+-- 创建节点资源表
+CREATE TABLE IF NOT EXISTS sea_node_resource (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    node_name VARCHAR(255) NOT NULL COMMENT '节点名称',
-    cpu_available BIGINT COMMENT 'CPU可用量（毫核）',
-    memory_available BIGINT COMMENT '内存可用量（字节）',
-    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '记录时间',
-    INDEX idx_node_time (node_name, timestamp) COMMENT '节点名称和时间的复合索引'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='节点资源指标记录表'; 
+    node_mem BIGINT COMMENT '节点内存',
+    reserve_mem BIGINT COMMENT '保留内存',
+    collect_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '采集时间'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='节点资源表'; 
