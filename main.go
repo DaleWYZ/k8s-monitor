@@ -152,20 +152,16 @@ func collectAndStoreMetrics(cfg *Config) error {
         return err
     }
 
-    // 计算所有节点的总内存和拼接剩余内存
-    var totalClusterMem int64
+    // 拼接各节点的可用内存
     var availableMemories []string
     for _, mem := range memories {
-        totalClusterMem += mem.totalMem
         availableMemories = append(availableMemories, fmt.Sprintf("%d", mem.availableMem/(1024*1024)))
     }
     // 添加保留内存值
     availableMemories = append(availableMemories, fmt.Sprintf("%d", cfg.ReserveMem/(1024*1024)))
 
-    // 将内存值转换为MB并拼接
-    memInfo := fmt.Sprintf("%d_%s", 
-        totalClusterMem/(1024*1024),           // 总内存(MB)
-        strings.Join(availableMemories, "_"))   // 各节点剩余内存和保留内存(MB)
+    // 将内存值拼接
+    memInfo := strings.Join(availableMemories, "_")   // 各节点剩余内存和保留内存(MB)
 
     // 插入拼接后的内存值
     _, err = db.Exec(`
@@ -174,8 +170,10 @@ func collectAndStoreMetrics(cfg *Config) error {
     `, memInfo)
     
     if err != nil {
-        log.Printf("Error inserting metrics: %v", err)
+        log.Printf("Error inserting metrics to database: %v, data: %s", err, memInfo)
+        return err
     }
+    log.Printf("Successfully inserted metrics to database: %s", memInfo)
     return nil
 }
 
@@ -185,19 +183,25 @@ type NodeMemory struct {
 }
 
 func getMemoryHandler(w http.ResponseWriter, r *http.Request) {
+    clientIP := r.RemoteAddr
+    log.Printf("Received memory request from %s", clientIP)
+
     if r.Method != http.MethodGet {
+        log.Printf("Invalid request method from %s: %s", clientIP, r.Method)
         http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
         return
     }
 
     memories, err := getNodesAvailableMemory()
     if err != nil {
+        log.Printf("Error getting memory metrics for client %s: %v", clientIP, err)
         http.Error(w, fmt.Sprintf("Error getting memory metrics: %v", err), http.StatusInternalServerError)
         return
     }
 
     cfg, err := loadConfig()
     if err != nil {
+        log.Printf("Error loading config for client %s: %v", clientIP, err)
         http.Error(w, fmt.Sprintf("Error loading config: %v", err), http.StatusInternalServerError)
         return
     }
@@ -209,6 +213,7 @@ func getMemoryHandler(w http.ResponseWriter, r *http.Request) {
     availableMemories = append(availableMemories, fmt.Sprintf("%d", cfg.ReserveMem/(1024*1024)))
 
     response := strings.Join(availableMemories, "_")
+    log.Printf("Sending memory info to client %s: %s", clientIP, response)
     w.Write([]byte(response))
 }
 
