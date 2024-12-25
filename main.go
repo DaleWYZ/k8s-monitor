@@ -16,7 +16,6 @@ import (
     "k8s.io/client-go/rest"
     "k8s.io/metrics/pkg/client/clientset/versioned"
     "k8s.io/metrics/pkg/apis/metrics/v1beta1"
-    "k8s.io/apimachinery/pkg/api/resource"
     metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -97,7 +96,7 @@ func loadConfig() (*Config, error) {
         return nil, err
     }
 
-    // 解析保留内���值
+    // 解析保留内存值
     reserveMem, err := strconv.ParseInt(configMap.Data["reserve_mem"], 10, 64)
     if err != nil {
         log.Printf("Invalid reserve_mem value, using default 1024MB: %v", err)
