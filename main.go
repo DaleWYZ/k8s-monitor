@@ -132,16 +132,25 @@ func initDB(cfg *Config) (*sql.DB, error) {
 }
 
 func startMetricsCollection(cfg *Config) {
-    interval, err := time.ParseDuration(cfg.Interval)
-    if err != nil {
-        log.Printf("Invalid interval, using default 30s: %v", err)
-        interval = 30 * time.Second
-    }
-
     for {
-        if err := collectAndStoreMetrics(cfg); err != nil {
+        // 每次循环都重新读取配置
+        newCfg, err := loadConfig()
+        if err != nil {
+            log.Printf("Error reloading config: %v, using old config", err)
+            newCfg = cfg
+        }
+
+        // 使用最新的配置解析时间间隔
+        interval, err := time.ParseDuration(newCfg.Interval)
+        if err != nil {
+            log.Printf("Invalid interval, using default 30s: %v", err)
+            interval = 30 * time.Second
+        }
+
+        if err := collectAndStoreMetrics(newCfg); err != nil {
             log.Printf("Error collecting metrics: %v", err)
         }
+        
         time.Sleep(interval)
     }
 }
