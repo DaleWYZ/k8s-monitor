@@ -7,6 +7,7 @@ import (
     "log"
     "net/http"
     "os"
+    "strconv"
     "strings"
     "time"
     
@@ -26,13 +27,14 @@ var (
 )
 
 type Config struct {
-    Mode     string
-    Host     string
-    Port     string
-    User     string
-    Password string
-    Database string
-    Interval string
+    Mode       string
+    Host       string
+    Port       string
+    User       string
+    Password   string
+    Database   string
+    Interval   string
+    ReserveMem int64
 }
 
 func main() {
@@ -71,7 +73,7 @@ func main() {
         defer db.Close()
         
         // 启动数据采集循环
-        go startMetricsCollection(cfg.Interval)
+        go startMetricsCollection(cfg)
     }
 
     // 设置HTTP路由
@@ -95,14 +97,22 @@ func loadConfig() (*Config, error) {
         return nil, err
     }
 
+    // 解析保留内���值
+    reserveMem, err := strconv.ParseInt(configMap.Data["reserve_mem"], 10, 64)
+    if err != nil {
+        log.Printf("Invalid reserve_mem value, using default 1024MB: %v", err)
+        reserveMem = 1024
+    }
+
     return &Config{
-        Mode:     configMap.Data["mode"],
-        Host:     configMap.Data["host"],
-        Port:     configMap.Data["port"],
-        User:     configMap.Data["user"],
-        Password: configMap.Data["password"],
-        Database: configMap.Data["database"],
-        Interval: configMap.Data["interval"],
+        Mode:       configMap.Data["mode"],
+        Host:       configMap.Data["host"],
+        Port:       configMap.Data["port"],
+        User:       configMap.Data["user"],
+        Password:   configMap.Data["password"],
+        Database:   configMap.Data["database"],
+        Interval:   configMap.Data["interval"],
+        ReserveMem: reserveMem * 1024 * 1024,
     }, nil
 }
 
@@ -122,36 +132,41 @@ func initDB(cfg *Config) (*sql.DB, error) {
     return db, nil
 }
 
-func startMetricsCollection(intervalStr string) {
-    interval, err := time.ParseDuration(intervalStr)
+func startMetricsCollection(cfg *Config) {
+    interval, err := time.ParseDuration(cfg.Interval)
     if err != nil {
         log.Printf("Invalid interval, using default 30s: %v", err)
         interval = 30 * time.Second
     }
 
     for {
-        if err := collectAndStoreMetrics(); err != nil {
+        if err := collectAndStoreMetrics(cfg); err != nil {
             log.Printf("Error collecting metrics: %v", err)
         }
         time.Sleep(interval)
     }
 }
 
-func collectAndStoreMetrics() error {
+func collectAndStoreMetrics(cfg *Config) error {
     memories, err := getNodesAvailableMemory()
     if err != nil {
         return err
     }
 
+    // 计算所有节点的总内存
+    var totalClusterMem int64
     for _, mem := range memories {
-        _, err = db.Exec(`
-            INSERT INTO sea_node_resource (node_mem, reserve_mem, collect_time)
-            VALUES (?, ?, CURRENT_TIMESTAMP)
-        `, mem.totalMem, mem.availableMem)
-        
-        if err != nil {
-            log.Printf("Error inserting metrics: %v", err)
-        }
+        totalClusterMem += mem.totalMem
+    }
+
+    // 插入拼接后的总内存值
+    _, err = db.Exec(`
+        INSERT INTO sea_node_resource (node_mem, reserve_mem, collect_time)
+        VALUES (?, ?, CURRENT_TIMESTAMP)
+    `, totalClusterMem, cfg.ReserveMem)
+    
+    if err != nil {
+        log.Printf("Error inserting metrics: %v", err)
     }
     return nil
 }
@@ -173,10 +188,17 @@ func getMemoryHandler(w http.ResponseWriter, r *http.Request) {
         return
     }
 
+    cfg, err := loadConfig()
+    if err != nil {
+        http.Error(w, fmt.Sprintf("Error loading config: %v", err), http.StatusInternalServerError)
+        return
+    }
+
     var availableMemories []string
     for _, mem := range memories {
-        availableMemories = append(availableMemories, fmt.Sprintf("%d", mem.availableMem/(1024*1024))) // 转换为MB
+        availableMemories = append(availableMemories, fmt.Sprintf("%d", mem.availableMem/(1024*1024)))
     }
+    availableMemories = append(availableMemories, fmt.Sprintf("%d", cfg.ReserveMem/(1024*1024)))
 
     response := strings.Join(availableMemories, "_")
     w.Write([]byte(response))
