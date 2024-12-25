@@ -17,6 +17,9 @@ spec:
       containers:
       - name: metrics-collector
         image: monitor:v2
+        ports:
+        - containerPort: 8080
+          name: http
         env:
         - name: POD_NAMESPACE
           valueFrom:

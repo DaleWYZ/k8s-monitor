@@ -4,6 +4,7 @@ metadata:
   name: mysql-config
   namespace: monitor
 data:
+  mode: "http"  # 可选值: "http" 或 "db"
   host: "mysql-service"
   port: "3306"
   user: "your-user"
