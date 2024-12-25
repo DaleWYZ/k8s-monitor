@@ -152,17 +152,26 @@ func collectAndStoreMetrics(cfg *Config) error {
         return err
     }
 
-    // 计算所有节点的总内存
+    // 计算所有节点的总内存和拼接剩余内存
     var totalClusterMem int64
+    var availableMemories []string
     for _, mem := range memories {
         totalClusterMem += mem.totalMem
+        availableMemories = append(availableMemories, fmt.Sprintf("%d", mem.availableMem/(1024*1024)))
     }
+    // 添加保留内存值
+    availableMemories = append(availableMemories, fmt.Sprintf("%d", cfg.ReserveMem/(1024*1024)))
 
-    // 插入拼接后的总内存值
+    // 将内存值转换为MB并拼接
+    memInfo := fmt.Sprintf("%d_%s", 
+        totalClusterMem/(1024*1024),           // 总内存(MB)
+        strings.Join(availableMemories, "_"))   // 各节点剩余内存和保留内存(MB)
+
+    // 插入拼接后的内存值
     _, err = db.Exec(`
-        INSERT INTO sea_node_resource (node_mem, reserve_mem, collect_time)
-        VALUES (?, ?, CURRENT_TIMESTAMP)
-    `, totalClusterMem, cfg.ReserveMem)
+        INSERT INTO sea_node_resource (mem_info, collect_time)
+        VALUES (?, CURRENT_TIMESTAMP)
+    `, memInfo)
     
     if err != nil {
         log.Printf("Error inserting metrics: %v", err)
